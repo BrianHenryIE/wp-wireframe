@@ -16,6 +16,7 @@ return [
     'title'    => 'Page Title',              // Optional. Shown in the header.
     'subtitle' => 'A short description',     // Optional. Shown below the title.
     'header_actions' => [ /* … */ ],         // Optional. Buttons beside Save / Reset.
+    'individual_options' => false,           // Optional. Store every field in its own wp_options row.
     'tabs'     => [
         [
             'id'       => 'tab_id',
@@ -68,6 +69,7 @@ These are common to every field type:
 | `columns`     | `int (1..12)`  | `12`     | Grid width. 12 = full row; 6 = half; 4 = third; etc.                                                       |
 | `conditions`  | `array`        | `null`   | [Conditional visibility](/wp-wireframe/docs/features/conditional-visibility/) rules evaluated against current values.        |
 | `access`      | `string\|array`| `null`   | [Role / capability gating](/wp-wireframe/docs/features/role-based-access/). Strictly opt-in.                                 |
+| `option_name` | `string`       | unset    | Store this field in its own `wp_options` row instead of the page's settings array. See [Individual option storage](/wp-wireframe/docs/configuration/individual-option-storage/). |
 | `args`        | `array`        | `[]`     | Type-specific settings — `placeholder`, `rows`, `options`, `multiple`, `mode`, etc.                        |
 
 ## Type-specific settings (`args`)
