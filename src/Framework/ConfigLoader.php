@@ -117,6 +117,19 @@ final class ConfigLoader
     }
 
     /**
+     * Whether the config opts every field into individual row storage.
+     *
+     * When the root sets `individual_options`, each field is stored in its
+     * own wp_options row named after its raw `id` (unless the field declares
+     * an explicit `option_name`) — for integrating with pre-existing options
+     * that don't share a naming convention.
+     */
+    public static function individualOptions(string $slug = 'settings'): bool
+    {
+        return !empty(self::load($slug)['individual_options']);
+    }
+
+    /**
      * Clear all cached configs.
      */
     public static function reset(): void
@@ -137,8 +150,9 @@ final class ConfigLoader
     {
         // Preserve top-level metadata.
         $normalized = [
-            'title'    => $raw['title'] ?? '',
-            'subtitle' => $raw['subtitle'] ?? '',
+            'title'              => $raw['title'] ?? '',
+            'subtitle'           => $raw['subtitle'] ?? '',
+            'individual_options' => !empty($raw['individual_options']),
         ];
 
         // Format 1: Fields only — wrap in default section + default tab.

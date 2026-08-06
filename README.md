@@ -34,7 +34,7 @@ Working starting points you can copy and adapt:
 
 - [Field Reference](./examples/field-reference) — kitchen-sink demo of every field type, plus an "Example" tab that reads like a real product settings page
 - [Newsletter Signup](./examples/newsletter-signup) — config loaded from `config/settings.php`
-- [QuickChat](./examples/quickchat) — SaaS-style plugin with its entire config inline in one file
+- [QuickChat](./examples/quickchat) — SaaS-style plugin with its entire config inline in one file, saving every field to its own `wp_options` row via `individual_options`
 
 ---
 
@@ -330,6 +330,7 @@ These are common to all field types:
 | `validation`  | Rakit validation rules string       | `''`     |
 | `columns`     | Grid width (1-12)                   | `12`     |
 | `conditions`  | Conditional visibility rules        | `null`   |
+| `option_name` | Store this field in its own `wp_options` row instead of the page's settings array. See [Individual option storage](#individual-option-storage). | unset (array storage) |
 
 ### Type-specific settings (`args`)
 
@@ -363,6 +364,40 @@ return [
 ```
 
 No tabs = no tab bar. No sections = fields render in a single card.
+
+### Individual option storage
+
+By default all fields on a page are saved together in a single `wp_options` array, named by the boot `option_key` (`{prefix}_settings` if unset). To store a field in its own row — handy when integrating with existing code that already calls `get_option()` / `update_option()`, or for easier WP-CLI and `pre_option_*` filter access — give it an `option_name`:
+
+```php
+['id' => 'app_name', 'type' => 'text', 'option_name' => 'my_plugin_app_name'],
+```
+
+Or opt in for every field at once with a root-level key:
+
+```php
+return [
+    'title'              => 'My Settings',
+    'individual_options' => true,          // field 'app_name' → option 'app_name'
+    'fields'             => [ /* ... */ ],
+];
+```
+
+With `individual_options` each row is named after the raw field `id` — useful when the options already exist in the database and don't share a naming convention; just make each field's `id` match its existing option name. A per-field `option_name` always wins over the root key, so exceptions stay easy.
+
+How it behaves:
+
+- **Reads fall back gracefully**: individual row → legacy value in the settings array → field `default`. Adding `option_name` to an already-deployed field just works; the first save migrates the legacy array entry into its own row.
+- **Booleans** (`toggle`, `checkbox`) are stored as `'1'` / `'0'` in the row (a raw `false` can't round-trip through `update_option()`), but `Settings::get()` / `Settings::bool()` and the settings page always give you a real `bool`. Third-party code reading the row directly gets `'1'` / `'0'`.
+- **Arrays** (repeaters, checkboxes, multi-selects) are stored serialized in the single row, exactly as `update_option()` normally handles arrays.
+- **Reset** deletes the individual rows along with the settings array; condition-hidden fields keep their stored rows on save, same as array storage.
+- **Naming is your responsibility** — pick option names that won't collide with other plugins (a name equal to the page's own option key is ignored).
+
+Other plugins and WP-CLI can then work with the value directly:
+
+```bash
+wp option get my_plugin_app_name
+```
 
 ---
 
