@@ -12,5 +12,16 @@
             "Wireframe\\": "src/"
         }
     },
-    "keywords": ["wordpress", "settings", "admin", "framework", "react"]
+    "autoload-dev": {
+        "psr-4": {
+            "Wireframe\\": "tests/"
+        },
+        "classmap": [
+            "tests/"
+        ]
+    },
+    "keywords": ["wordpress", "settings", "admin", "framework", "react"],
+    "require-dev": {
+        "10up/wp_mock": "^1.1"
+    }
 }
