@@ -245,6 +245,76 @@ class SaveLoadOptionsTest extends \WP_Mock\Tools\TestCase
 		$this->assertInstanceOf( \WP_REST_Response::class, $response );
 		$this->assertTrue( $response->get_data()['success'] );
 	}
+
+	/**
+	 * With `individual_options` on, a field's explicit `option_name` is
+	 * used for its row instead of the field `id`.
+	 */
+	public function test_saving_all_individual_options_respects_option_name(): void {
+
+		$config = $this->config;
+		$config['individual_options'] = true;
+		$config['tabs'][0]['sections'][0]['fields'][2]['option_name'] = 'newsletter_accent_color';
+
+		\Wireframe\App::boot([
+			'prefix'     => 'newsletter-signup',
+			'page_title' => 'Newsletter Signup',
+			'option_key' => 'newsletter_signup_settings',
+			'config'     => $config,
+		]);
+
+		$this->mockAdministrator();
+		$this->mockStoredOptions( array() );
+
+		$payload = array(
+			'heading'        => 'Join our list',
+			'button_label'   => 'Sign up',
+			'accent_color'   => '#ff0000',
+			'show_on_mobile' => false,
+		);
+
+		$expected_rows = array(
+			'heading'                 => 'Join our list',
+			'button_label'            => 'Sign up',
+			'newsletter_accent_color' => '#ff0000',
+			'show_on_mobile'          => '0',
+		);
+
+		foreach ( $expected_rows as $option_name => $value ) {
+			\WP_Mock::userFunction(
+				'update_option',
+				array(
+					'times'  => 1,
+					'args'   => array( $option_name, $value ),
+					'return' => true,
+				)
+			);
+		}
+
+		// Never written under the field id.
+		\WP_Mock::userFunction(
+			'update_option',
+			array(
+				'times' => 0,
+				'args'  => array( 'accent_color', Functions::type( 'string' ) ),
+			)
+		);
+
+		\WP_Mock::userFunction(
+			'update_option',
+			array(
+				'times'  => 1,
+				'args'   => array( 'newsletter_signup_settings', array() ),
+				'return' => true,
+			)
+		);
+
+		$response = $this->postSettings( 'newsletter-signup', 'default', $payload );
+
+		$this->assertInstanceOf( \WP_REST_Response::class, $response );
+		$this->assertTrue( $response->get_data()['success'] );
+	}
+
 	public function test_saving_as_array_and_some_individual_options(): void {
 
 		// Only the accent color opts into its own row via `option_name`.
@@ -368,6 +438,46 @@ class SaveLoadOptionsTest extends \WP_Mock\Tools\TestCase
 				'newsletter_signup_settings' => array(),
 				'heading'                    => 'Join our list',
 				'accent_color'               => '#ff0000',
+				'show_on_mobile'             => '0',
+			)
+		);
+
+		$values = $this->getSettingsValues( 'newsletter-signup', 'default' );
+
+		$this->assertSame(
+			array(
+				'heading'        => 'Join our list',
+				'button_label'   => 'Subscribe',
+				'accent_color'   => '#ff0000',
+				'show_on_mobile' => false,
+			),
+			$values
+		);
+	}
+
+	public function test_loading_all_individual_options_respects_option_name(): void {
+
+		$config = $this->config;
+		$config['individual_options'] = true;
+		$config['tabs'][0]['sections'][0]['fields'][2]['option_name'] = 'newsletter_accent_color';
+
+		\Wireframe\App::boot([
+			'prefix'     => 'newsletter-signup',
+			'page_title' => 'Newsletter Signup',
+			'option_key' => 'newsletter_signup_settings',
+			'config'     => $config,
+		]);
+
+		$this->mockAdministrator();
+
+		// A row under the bare field id must be ignored; only the
+		// `option_name` row is read.
+		$this->mockStoredOptions(
+			array(
+				'newsletter_signup_settings' => array(),
+				'heading'                    => 'Join our list',
+				'accent_color'               => '#000000',
+				'newsletter_accent_color'    => '#ff0000',
 				'show_on_mobile'             => '0',
 			)
 		);
