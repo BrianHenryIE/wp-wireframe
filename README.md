@@ -790,6 +790,27 @@ Default value is a private `Unhandled` sentinel — if no listener attaches, the
 - Any `html` you return is rendered raw on the client. Escape anything user-derived with `esc_html()`, `wp_kses_post()`, or assemble the HTML server-side from trusted strings.
 - No PHP callables live in the config, so no callable target names leak into the page source.
 
+### Header Actions
+
+Add buttons to the page header, next to Save / Reset, with the page-level `header_actions` key:
+
+```php
+return [
+    'title'          => __('Orders', 'my-plugin'),
+    'header_actions' => [
+        ['id' => 'export',      'label' => __('Export JSON', 'my-plugin'), 'href' => $exportUrl, 'target' => '_blank'],
+        ['id' => 'recalculate', 'label' => __('Recalculate', 'my-plugin'), 'variant' => 'primary', 'confirm' => __('Are you sure?', 'my-plugin'), 'access' => 'manage_options'],
+    ],
+    'tabs' => [ /* … */ ],
+];
+
+add_filter('my-plugin/header_action/{pageId}/recalculate', function ($unhandled, array $values, WP_REST_Request $request) {
+    return ['status' => 'success', 'message' => __('Recalculated.', 'my-plugin')];
+}, 10, 3);
+```
+
+A button with `href` is a plain link. Any other button works like an [action field](#action-field) button: it posts the in-flight form values to `{prefix}/header_action/{pageId}/{id}` and takes the same `variant`, `destructive`, `confirm` and response shape (`html` opens in a modal). `access` uses the [field format](#role-based-access) and defaults to the page capability; running a button is an edit, so a user needs its `edit` rule (which falls back to `view`). Buttons the user can't run are never sent to the browser, and their route returns `403`.
+
 ### Validation
 
 ```php
@@ -989,6 +1010,7 @@ The `action` and `table` field types dispatch through per-page, per-field filter
 | Hook                                                          | Type   | Purpose                                                                                     |
 | ------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------- |
 | `{prefix}/action/{pageId}/{fieldId}/{actionId}`               | filter | Handle a button press on an `action` field. See [Action Field](#action-field).              |
+| `{prefix}/header_action/{pageId}/{actionId}`                  | filter | Handle a header button press. See [Header Actions](#header-actions).                        |
 | `{prefix}/table/{pageId}/{fieldId}/data`                      | filter | Row fetch for a `table` field. Receives `$query`, returns `['items', 'total']`.             |
 | `{prefix}/table/{pageId}/{fieldId}/{actionId}`                | filter | Row / bulk action on a `table` field. Receives `$ids`, `$request`.                          |
 | `{prefix}/table/{pageId}/{fieldId}/detail/fetch`              | filter | Load a single entry for the detail view. Receives `$entryId`, `$request`.                   |
