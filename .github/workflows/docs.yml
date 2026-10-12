@@ -1,0 +1,57 @@
+name: Deploy docs
+
+# Build the Starlight site in `docs/` and publish it to `docs/` on the
+# `gh-pages` branch, served at https://tdrayson.github.io/wp-wireframe/docs/.
+# Pages is configured to serve `gh-pages` (legacy source), which the Playground
+# workflows share for their `<sha>/examples/` previews.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'CHANGELOG.md'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    # Shared with playground-publish.yml: concurrent pushes to gh-pages get rejected.
+    concurrency:
+      group: gh-pages-publish
+      cancel-in-progress: false
+      queue: max
+
+    defaults:
+      run:
+        working-directory: docs
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+
+      - run: npm ci
+
+      - run: npm run build
+
+      # keep_files: false only clears `docs/`; the preview directories are untouched.
+      - name: Publish to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: docs/dist
+          destination_dir: docs
+          keep_files: false
+          user_name: github-actions[bot]
+          user_email: 41898282+github-actions[bot]@users.noreply.github.com
+          commit_message: 'Publish docs for ${{ github.sha }}'

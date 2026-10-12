@@ -1,0 +1,212 @@
+---
+title: Action Field
+description: Buttons that POST the in-flight form values to a server-side hook. Pure-data config, hook-based dispatch, snackbar + inline result.
+sidebar:
+  order: 5
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+Run a server-side handler from a button. The in-flight form values are sent along, so the handler can read sibling fields. Config is **pure data** — no PHP callables — and handlers wire in via `add_filter` anywhere in your plugin.
+
+```php
+[
+    'id'    => 'recalculate',
+    'type'  => 'action',
+    'label' => __('Totals', 'my-plugin'),
+    'args'  => [
+        'button_label' => __('Recalculate', 'my-plugin'),
+        'variant'      => 'primary',
+        'confirm'      => __('Rebuild every order total?', 'my-plugin'),
+    ],
+],
+```
+
+```php
+add_filter(
+    'my-plugin/action/default/recalculate/run',
+    function ($unhandled, array $values, $request) {
+        return ['status' => 'success', 'message' => __('Done.', 'my-plugin')];
+    },
+    10,
+    3
+);
+```
+
+## Single button or button group
+
+<Tabs>
+    <TabItem label="Sugar (single button)">
+        Omit `args.buttons[]`. The button id defaults to the literal string `run`, so the filter is `{prefix}/action/{pageId}/{fieldId}/run`. Label and variant come from `args.button_label` / `args.variant`.
+
+        ```php
+        [
+            'id'    => 'recalculate',
+            'type'  => 'action',
+            'label' => __('Totals', 'my-plugin'),
+            'args'  => [
+                'button_label' => __('Recalculate', 'my-plugin'),
+                'variant'      => 'primary',
+            ],
+        ],
+        ```
+
+        Filter: `my-plugin/action/{pageId}/recalculate/run`
+    </TabItem>
+    <TabItem label="Button group">
+        Declare an `args.buttons[]` array. Each button has its own id, label, variant, and confirm. Each posts to its own route and fires its own filter.
+
+        ```php
+        [
+            'id'    => 'billing_tools',
+            'type'  => 'action',
+            'label' => __('Billing tools', 'my-plugin'),
+            'args'  => [
+                'buttons' => [
+                    ['id' => 'refresh_stats', 'label' => __('Refresh stats', 'my-plugin'), 'variant' => 'primary'],
+                    ['id' => 'export_csv',    'label' => __('Export CSV',    'my-plugin')],
+                    ['id' => 'wipe',          'label' => __('Wipe',          'my-plugin'),
+                     'destructive' => true,
+                     'confirm'     => __('Wipe everything? This cannot be undone.', 'my-plugin')],
+                ],
+            ],
+        ],
+        ```
+
+        Filters:
+
+        - `my-plugin/action/{pageId}/billing_tools/refresh_stats`
+        - `my-plugin/action/{pageId}/billing_tools/export_csv`
+        - `my-plugin/action/{pageId}/billing_tools/wipe`
+    </TabItem>
+</Tabs>
+
+## Unlabelled actions
+
+`label` is optional. Without it, the button text is the accessible name and no label row is rendered, so a standalone action sits flush in its section.
+
+When an unlabelled action shares a row with labelled fields (via `columns`), set `args.label_spacer` to reserve the label's height so the buttons line up with the neighbouring inputs:
+
+```php
+['id' => 'api_key', 'type' => 'text', 'label' => __('API key', 'my-plugin'), 'columns' => 8],
+[
+    'id'      => 'test_key',
+    'type'    => 'action',
+    'columns' => 4,
+    'args'    => [
+        'button_label' => __('Test connection', 'my-plugin'),
+        'label_spacer' => true,
+    ],
+],
+```
+
+`label_spacer` defaults to `false` and has no effect when `label` is set.
+
+## Response shape
+
+Return any of:
+
+| Return                              | Effect                                                                                                                          |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `array{status, message?, html?}`    | `status` ∈ `success` / `error` / `warning` / `info`. `message` drives the snackbar. `html` renders an inline result panel.        |
+| `WP_Error`                          | REST error — surfaces in the client error snackbar.                                                                              |
+| `array{download: array}`            | Triggers a browser download — see [Downloads](#downloads). Combine with `status` / `message`.                                     |
+| `bool`                              | `true` → generic success, `false` → generic error.                                                                                |
+
+The handler's return drives both UIs at once:
+
+- **Snackbar** (`core/notices`) — always shown when `status` + `message` are set. Brief, dismissible.
+- **Inline panel** — shown only when `html` is non-empty. Persistent, good for rich detail.
+
+Short responses get just the snackbar; rich responses get both. No extra config switch — the dev picks the experience by what they return.
+
+### Downloads
+
+Return a `download` key to have the browser save a file:
+
+```php
+return [
+    'status'   => 'success',
+    'message'  => __('Report generated.', 'my-plugin'),
+    'download' => [
+        'filename' => 'report.csv',
+        'mime'     => 'text/csv',
+        'content'  => $csv,
+        'encoding' => 'text',   // or 'base64' for binary content
+    ],
+];
+```
+
+`mime` defaults to `application/octet-stream` and `encoding` to `text`.
+
+### Per-button result slots
+
+Each button in a group owns its own inline panel. Clicking sibling buttons never wipes a panel they didn't produce — only that button's own subsequent clicks update or clear its slot. Network errors leave every panel alone.
+
+## Confirm modal
+
+Set `confirm` to require a modal step before the button fires. Two shapes:
+
+```php
+// Shorthand — just the message; title and labels use defaults.
+'confirm' => __('Reset to defaults?', 'my-plugin'),
+
+// Full form — override anything in one grouped key.
+'confirm' => [
+    'message'      => __('Regenerating immediately invalidates the existing key. Continue?', 'my-plugin'),
+    'title'        => __('Regenerate API key', 'my-plugin'),
+    'button_label' => __('Yes, regenerate', 'my-plugin'),
+    'cancel_label' => __('Keep current key', 'my-plugin'),
+],
+```
+
+The shorthand is for the common case; the array form is for when you want to tune the dialog without adding more `confirm_*` keys at the field level.
+
+## Hook naming
+
+```
+{prefix}/action/{pageId}/{fieldId}/{actionId}
+```
+
+In sugar mode (no `args.buttons[]`) the `{actionId}` is the literal string `run`.
+
+The filter default is a private `Unhandled` sentinel — if no listener attaches, the route returns `404 wireframe_action_unhandled` so the user sees a clear error rather than a silent no-op.
+
+## Security boundaries
+
+- **View-level auth** — the route requires a WP REST nonce and the page's `capability` (default `manage_options`). With [role-based access](/wp-wireframe/docs/features/role-based-access/) on, any user who can *view* something on the page can call it, so check `current_user_can()` in handlers that change data.
+- **Values scoped to access** — with role-based access on, `$values` holds only the fields the user can view, and view-only fields carry their stored value (or default), never the posted one. `$request` still carries the raw body, so read `$values`.
+- **Declared fields only** — unknown payload keys are dropped before sanitisation. Each declared value runs through its type's `sanitize()` (so a `number` is an `int`, a `url` has been through `esc_url_raw`, etc.).
+- **Sanitisers enforce format, not semantics** — your handler must still authorise what's being asked for (e.g. "can this user modify *that* order?") and use `$wpdb->prepare()` for anything it interpolates into SQL.
+- **Raw HTML output is on you** — any `html` you return is rendered as `<RawHTML>` on the client. Escape anything user-derived with `esc_html()`, `wp_kses_post()`, or build the HTML server-side from trusted strings.
+- **No callable leakage** — no PHP callables live in the config, so no callable target names ever leak into the page source.
+
+## Reading sibling values
+
+Because the request carries the in-flight values, your handler can read other fields on the page without any extra plumbing. On [role-based access](/wp-wireframe/docs/features/role-based-access/) pages, fields the user can't view are absent — read those from `Settings` instead:
+
+```php
+add_filter(
+    'my-plugin/action/default/billing_tools/refresh_stats',
+    function ($unhandled, array $values, $request) {
+        $userId = absint($values['target_user'] ?? 0);   // sibling 'select' field
+
+        if ($userId === 0) {
+            return [
+                'status'  => 'error',
+                'message' => __('Pick a user first.', 'my-plugin'),
+            ];
+        }
+
+        // …
+    },
+    10,
+    3
+);
+```
+
+The values are **sanitised** but **not validated**. Your handler is responsible for treating them as untrusted input — `$wpdb->prepare()`, cap checks, etc.
+
+<Aside type="tip">
+Prefer **named functions** over anonymous closures when wiring handlers — they're greppable, replaceable via `remove_filter`, and show up cleanly in tools like Query Monitor. See the [Action handlers recipe](/wp-wireframe/docs/recipes/action-handlers/) for the pattern.
+</Aside>

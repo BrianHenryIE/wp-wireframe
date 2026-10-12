@@ -1,0 +1,56 @@
+---
+title: WP Wireframe
+description: Skip the admin UI. Ship your plugin.
+template: splash
+hero:
+  tagline: A fast, standardised way to build WordPress settings pages. List your fields in a PHP array and WP Wireframe builds the whole admin page using WordPress React components.
+  actions:
+    - text: Get Started
+      link: /wp-wireframe/docs/getting-started/installation/
+      icon: right-arrow
+    - text: View on GitHub
+      link: https://github.com/tdrayson/wp-wireframe
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## What you get
+
+<CardGrid stagger>
+	<Card title="One PHP array, full settings page" icon="document">
+		Tabs, sections, and 20+ field types — declared as data, rendered as a native WordPress admin page.
+	</Card>
+	<Card title="Standardised fields" icon="puzzle">
+		Every input looks and behaves the same across plugins and projects. Built on `@wordpress/components` and `@wordpress/admin-ui`.
+	</Card>
+	<Card title="Laravel-style API" icon="seti:php">
+		`Settings::get()`, `Settings::bool()`, dot notation. Per-plugin option keys so multiple consumers can't collide.
+	</Card>
+	<Card title="Validation & conditions" icon="approve-check">
+		Server-side validation rules and show/hide logic built right into the field config.
+	</Card>
+	<Card title="Multi-page, repeaters, i18n" icon="open-book">
+		Repeaters, import/export, multi-page boots, and translation-ready out of the box.
+	</Card>
+	<Card title="Zero JS build" icon="rocket">
+		Pre-built React app ships with the package — no Node toolchain required on your side.
+	</Card>
+</CardGrid>
+
+## See it
+
+![A WP Wireframe settings page with tabs, sections, and a range of field types](https://github.com/user-attachments/assets/c8f062bd-ca9d-4054-b6f0-54b50ee91a62)
+
+## Example plugins
+
+Each lives in [`examples/`](https://github.com/tdrayson/wp-wireframe/tree/main/examples) and every pull request links a [Playground preview](/wp-wireframe/docs/contributing/#playground-previews) of all of them.
+
+- [Field Reference](https://github.com/tdrayson/wp-wireframe/tree/main/examples/field-reference) — kitchen-sink demo of every field type
+- [Newsletter Signup](https://github.com/tdrayson/wp-wireframe/tree/main/examples/newsletter-signup) — config loaded from `config/settings.php`
+- [QuickChat](https://github.com/tdrayson/wp-wireframe/tree/main/examples/quickchat) — SaaS-style plugin with its entire config inline
+
+## License & credits
+
+GPL-2.0-or-later. Built on `@wordpress/components`, `@wordpress/admin-ui`, `@wordpress/dataviews`, and [magewirephp/validation](https://github.com/magewirephp/validation).

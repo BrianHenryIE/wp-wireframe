@@ -1,0 +1,94 @@
+---
+title: Save & Reset
+description: How values round-trip — dirty tracking, merge-not-overwrite semantics, scoped reset, and the snackbar UX.
+sidebar:
+  order: 4
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The save and reset buttons in the page header drive two REST endpoints (`POST /settings/{pageId}` and `DELETE /settings/{pageId}`). Both flows are designed so a user with partial access can never destroy values outside their scope.
+
+## Save: merges, never overwrites
+
+When you hit **Save**, the client posts the in-flight values to the REST endpoint. The server:
+
+1. Looks up the user's editable field list (via the access map).
+2. Intersects the posted payload with that list — fields outside it are silently dropped.
+3. Sanitises every remaining value through its type handler.
+4. Runs the [validation pass](/wp-wireframe/docs/features/validation/).
+5. **Merges** the validated values into the existing saved state, replacing only the keys it received.
+6. Persists, fires `{prefix}/settings_saved`, returns the updated value set.
+
+The merge step is the important one. A user editing 3 of 20 fields will leave the other 17 alone. Same for fields hidden by [conditions](/wp-wireframe/docs/features/conditional-visibility/) — their saved values are preserved.
+
+<Aside type="tip">
+This means a `wp_options` row can hold values from multiple authors with different access scopes, and nobody overwrites anyone else's work.
+</Aside>
+
+## Reset: scoped to your editable fields
+
+Hitting **Reset** in the header opens an inline confirm. Confirming sends `DELETE /settings/{pageId}`. The server:
+
+- **Without role-based access** — deletes the page's `option_key` row, so every field falls back to its default. If pages [share an `option_key`](/wp-wireframe/docs/configuration/multi-page/), that includes the other pages' values.
+- **With role-based access** — removes only the user's editable fields from the saved row; they fall back to their defaults and everything else keeps its saved value.
+
+Either way it then fires `{prefix}/settings_reset` and returns the resolved value set.
+
+## Turning Save and Reset off
+
+`{prefix}/can_save` and `{prefix}/can_reset` decide whether the Save / Reset buttons show. They're enforced server-side too: when either resolves `false`, the matching endpoint returns a 403.
+
+Both default to `false` when none of the user's editable fields stores a value — a page of only stateless fields (`html`, `table`, `action`, `upload`, …) shows no Save or Reset. `can_reset` is also `false` when `wp-wireframe/access/can_reset` denies it.
+
+```php
+// Hide Save on a read-only status page
+add_filter('my-plugin/can_save', function (bool $canSave, string $pageId, $map) {
+    return $pageId === 'status' ? false : $canSave;
+}, 10, 3);
+
+// Only administrators may reset
+add_filter('my-plugin/can_reset', function (bool $canReset, string $pageId, $map) {
+    return $canReset && current_user_can('manage_options');
+}, 10, 3);
+```
+
+Both receive `(bool $value, string $pageId, ConfigAccessMap $map)`.
+
+## Dirty tracking
+
+The client compares the in-flight values against the last-saved snapshot to compute `isDirty`. The Save button enables only when dirty. Refreshing the page or saving the form resets the snapshot.
+
+## Snackbar UX
+
+Both flows show a `core/notices` snackbar on completion:
+
+| Outcome           | Snackbar                                                                                  |
+| ----------------- | ----------------------------------------------------------------------------------------- |
+| Save success      | `Settings saved.`                                                                         |
+| Save validation   | `Failed to save, please check: <comma-separated field labels>`                            |
+| Save failure      | The error's `message` if present, else `Failed to save settings.`                          |
+| Reset success     | `Settings reset to defaults.`                                                              |
+| Reset failure     | The error's `message` if present, else `Failed to reset settings.`                         |
+
+Validation errors also populate `errors[field_id]` on each affected field, so the user sees both the snackbar summary and inline messages on the affected inputs.
+
+## Hooks fired
+
+```php
+// Fired after a successful save.
+do_action('{prefix}/settings_saved', array $values, string $pageId);
+
+// Fired after a successful reset.
+do_action('{prefix}/settings_reset', string $pageId);
+```
+
+Useful for clearing object caches, triggering re-indexing, or syncing values to an external service:
+
+```php
+add_action('my-plugin/settings_saved', function (array $values, string $pageId) {
+    wp_cache_delete('my-plugin-config', 'options');
+}, 10, 2);
+```
+
+For finer-grained mutation, see the `wp-wireframe/save/editable_fields` and `wp-wireframe/save/payload` filters in [Hooks & Filters](/wp-wireframe/docs/reference/hooks-and-filters/).

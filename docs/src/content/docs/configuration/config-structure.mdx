@@ -1,0 +1,155 @@
+---
+title: Config Structure
+description: How tabs, sections, and fields fit together. The shape every config follows.
+sidebar:
+  order: 4
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Configs use a flat structure with **promoted common keys** at the field level. Type-specific settings go in `args`.
+
+## Full shape
+
+```php
+return [
+    'title'    => 'Page Title',              // Optional. Shown in the header.
+    'subtitle' => 'A short description',     // Optional. Shown below the title.
+    'header_actions' => [ /* … */ ],         // Optional. Buttons beside Save / Reset.
+    'tabs'     => [
+        [
+            'id'       => 'tab_id',
+            'title'    => 'Tab Label',
+            'sections' => [
+                [
+                    'id'          => 'section_id',
+                    'title'       => 'Section Title',
+                    'description' => 'Helpful description text.',
+                    'fields'      => [
+                        [
+                            'id'          => 'field_id',
+                            'type'        => 'text',
+                            'label'       => 'Field Label',
+                            'description' => 'Help text below the field.',
+                            'default'     => '',
+                            'required'    => false,
+                            'validation'  => 'min:3|max:100',
+                            'columns'     => 6,
+                            'conditions'  => [
+                                'all' => [
+                                    ['field' => 'other_field', 'operator' => 'truthy'],
+                                ],
+                            ],
+                            'args' => [
+                                'placeholder' => 'Enter text',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ],
+    ],
+];
+```
+
+## Promoted keys (field level)
+
+These are common to every field type:
+
+| Key           | Type           | Default  | Description                                                                                                |
+| ------------- | -------------- | -------- | ---------------------------------------------------------------------------------------------------------- |
+| `id`          | `string`       | Required | Unique field identifier within the page.                                                                   |
+| `type`        | `string`       | `'text'` | One of the [registered field types](/wp-wireframe/docs/field-types/text-family/).                                            |
+| `label`       | `string`       | `''`     | Display label. Pass `''` explicitly to render no label (the field will still align with labelled siblings).|
+| `description` | `string`       | `''`     | Help text below the field. Supports `{field_id}` tokens that interpolate live form values, e.g. `'URL: https://example.com/{slug}'`. |
+| `default`     | `mixed`        | `null`   | Default value, used when no saved value exists.                                                            |
+| `required`    | `bool`         | `false`  | Whether the field must have a value at save time.                                                          |
+| `validation`  | `string`       | `''`     | Pipe-separated [validation rules](/wp-wireframe/docs/features/validation/) — e.g. `'min:3\|max:100'`.                  |
+| `columns`     | `int (1..12)`  | `12`     | Grid width. 12 = full row; 6 = half; 4 = third; etc.                                                       |
+| `conditions`  | `array`        | `null`   | [Conditional visibility](/wp-wireframe/docs/features/conditional-visibility/) rules evaluated against current values.        |
+| `access`      | `string\|array`| `null`   | [Role / capability gating](/wp-wireframe/docs/features/role-based-access/). Strictly opt-in.                                 |
+| `args`        | `array`        | `[]`     | Type-specific settings — `placeholder`, `rows`, `options`, `multiple`, `mode`, etc.                        |
+
+## Type-specific settings (`args`)
+
+Everything that varies between field types lives under `args`. Some examples:
+
+```php
+// Text field
+['type' => 'text', 'args' => ['placeholder' => 'Optional placeholder', 'copyable' => true]]
+
+// Textarea
+['type' => 'textarea', 'args' => ['rows' => 5, 'placeholder' => '…']]
+
+// Select
+['type' => 'select', 'args' => ['options' => ['draft' => 'Draft', 'published' => 'Published']]]
+
+// Repeater
+['type' => 'repeater', 'args' => ['subfields' => [ /* … */ ], 'add_label' => 'Add row']]
+```
+
+See each field type's page in [Field Types](/wp-wireframe/docs/field-types/text-family/) for the full set.
+
+## Flexible structure — tabs and sections are optional
+
+The full nested shape (`tabs → sections → fields`) is the maximum. You can collapse it when you don't need every level.
+
+### No tabs, no sections — just fields
+
+```php
+return [
+    'fields' => [
+        ['id' => 'name', 'type' => 'text', 'label' => 'Name'],
+        ['id' => 'email', 'type' => 'email', 'label' => 'Email'],
+    ],
+];
+```
+
+No tabs are rendered. Fields render in a single card.
+
+### Sections, no tabs
+
+```php
+return [
+    'sections' => [
+        [
+            'id'     => 'main',
+            'title'  => 'Main Settings',
+            'fields' => [
+                ['id' => 'name', 'type' => 'text', 'label' => 'Name'],
+            ],
+        ],
+    ],
+];
+```
+
+The tab bar is suppressed; section cards stack vertically.
+
+<Aside type="tip">
+A single tab with one section is the **same as just fields**. The framework strips empty wrappers when it builds the React tree.
+</Aside>
+
+## Schema & validation
+
+A JSON Schema for the config structure ships at [`schema/config.schema.json`](https://github.com/tdrayson/wp-wireframe/blob/main/schema/config.schema.json). It covers all three input formats, the common field keys, the conditions DSL, the `access` shapes, and per-type `args` constraints (e.g. choice fields require `args.options`, repeaters require `args.subfields`). Point your editor at it to get autocomplete and inline validation while authoring JSON configs.
+
+In VS Code, map it in `.vscode/settings.json`:
+
+```jsonc
+{
+  "json.schemas": [
+    {
+      "fileMatch": ["**/config/*.json", "**/wireframe.config.json"],
+      "url": "./vendor/wp-wireframe/schema/config.schema.json"
+    }
+  ]
+}
+```
+
+Or reference it inline from a JSON config with `"$schema": "./vendor/wp-wireframe/schema/config.schema.json"`.
+
+### Runtime check
+
+When `WP_DEBUG` is enabled, every booted config is linted and structural problems — unknown field types, choice fields missing `options`, duplicate IDs, out-of-range `columns`, and so on — are written to the PHP error log. Users with `manage_options` also see them in a warning notice on other admin screens; Wireframe pages themselves [suppress admin notices](/wp-wireframe/docs/reference/hooks-and-filters/), so check the log there.
+
+It's a focused sanity check against the live field registry; the JSON Schema remains the full contract. Nothing runs when `WP_DEBUG` is off, so production is unaffected.

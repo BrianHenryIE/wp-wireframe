@@ -1,0 +1,121 @@
+---
+title: Complex
+description: Repeater rows and the paginated DataViews-powered table field.
+sidebar:
+  order: 7
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+## Types
+
+| Type       | Description                                | Stored as           |
+| ---------- | ------------------------------------------ | ------------------- |
+| `repeater` | Add / remove / reorder rows of subfields   | `array` of objects  |
+| `table`    | Paginated DataViews-powered table          | — (stateless)       |
+
+## `repeater`
+
+Subfields are declared inline in `args.subfields` and follow the same shape as any other field config.
+
+```php
+[
+    'id'    => 'redirects',
+    'type'  => 'repeater',
+    'label' => __('Redirects', 'my-plugin'),
+    'args'  => [
+        'sortable'       => true,
+        'collapsible'    => true,
+        'duplicate_row'  => true,
+        'max_rows'       => 50,
+        'add_label'      => __('Add redirect', 'my-plugin'),
+        'empty_message'  => __('No redirects configured.', 'my-plugin'),
+        'title_template' => '{from} → {status}',
+        'subfields'      => [
+            ['id' => 'from',   'type' => 'text',   'label' => __('From path', 'my-plugin'), 'required' => true, 'columns' => 4],
+            ['id' => 'to',     'type' => 'text',   'label' => __('To URL',    'my-plugin'), 'required' => true, 'columns' => 4],
+            ['id' => 'status', 'type' => 'select', 'label' => __('Status',    'my-plugin'), 'default' => '301', 'columns' => 4,
+                'args' => [
+                    'options' => [
+                        '301' => __('301 Permanent', 'my-plugin'),
+                        '302' => __('302 Temporary', 'my-plugin'),
+                    ],
+                ],
+            ],
+        ],
+    ],
+],
+```
+
+### Repeater `args`
+
+| Arg              | Default        | Notes                                                                                 |
+| ---------------- | -------------- | ------------------------------------------------------------------------------------- |
+| `subfields`      | `[]`           | Array of field configs that compose each row.                                          |
+| `sortable`       | `false`        | Allow drag-to-reorder.                                                                 |
+| `collapsible`    | `false`        | Show a per-row collapse / expand toggle.                                               |
+| `duplicate_row`  | `false`        | Show a duplicate button alongside delete.                                              |
+| `max_rows`       | unlimited      | Hide the **Add** button once the count is reached. The server caps rows at 200 unless set. |
+| `add_label`      | `'Add Row'`    | Label of the add button.                                                               |
+| `empty_message`  | `''`           | Shown when the repeater has zero rows.                                                 |
+| `title_template` | `''`           | Template for the per-row collapsed title. Supports `{subfield_id}` token interpolation. |
+
+<Aside type="note">
+Subfields don't get their own `access` keys — the whole repeater is one editable unit; subfields inherit the parent's editability.
+</Aside>
+
+### Conditional subfields
+
+Subfields accept the same [`conditions`](/wp-wireframe/docs/features/conditional-visibility/) DSL as top-level fields. Rules evaluate against **the row**, so `field` refers to a sibling subfield id.
+
+```php
+'subfields' => [
+    ['id' => 'kind', 'type' => 'select', 'label' => __('Type', 'my-plugin'), 'default' => 'once',
+        'args' => ['options' => ['once' => __('One-off', 'my-plugin'), 'recurring' => __('Recurring', 'my-plugin')]],
+    ],
+    ['id' => 'run_at', 'type' => 'date', 'label' => __('Run at', 'my-plugin'), 'required' => true,
+        'conditions' => ['all' => [['field' => 'kind', 'operator' => 'equals', 'value' => 'once']]],
+    ],
+],
+```
+
+A hidden subfield doesn't render, skips validation (so `required` won't block the save), and is dropped from the saved row. Unlike hidden top-level fields, its previous value is not preserved.
+
+## `table`
+
+The `table` field is stateless — it doesn't persist a value. It renders a paginated, sortable, filterable DataViews-style table whose rows come from a server-side handler.
+
+```php
+[
+    'id'    => 'entries',
+    'type'  => 'table',
+    'label' => __('Entries', 'my-plugin'),
+    'args'  => [
+        'fields' => [
+            ['id' => 'name',    'label' => __('Name',    'my-plugin'), 'type' => 'text',     'sortable' => true],
+            ['id' => 'email',   'label' => __('Email',   'my-plugin'), 'type' => 'text'],
+            ['id' => 'created', 'label' => __('Created', 'my-plugin'), 'type' => 'datetime', 'sortable' => true],
+        ],
+        'actions' => [
+            ['id' => 'view',    'label' => __('View',    'my-plugin'), 'opens_detail' => true],
+            ['id' => 'archive', 'label' => __('Archive', 'my-plugin'), 'supports_bulk' => true],
+        ],
+    ],
+],
+```
+
+Columns go in `args.fields` (not `columns`, which is the layout-grid key).
+
+### CSV export
+
+Set `args.export` to add an **Export CSV** button to the table toolbar:
+
+```php
+'export' => true,
+// or
+'export' => ['filename' => 'orders', 'button_label' => __('Download CSV', 'my-plugin')],
+```
+
+Export re-runs your data handler with the current search, sort and filters, but with `per_page => -1` and `is_export => true`. Your handler must return **every** matching row when `per_page` is negative. The CSV header comes from the column labels; array values are joined with `, `, and cells starting with `=`, `+`, `-`, `@`, tab or CR are prefixed with `'` so spreadsheets don't run them as formulas. The filename defaults to the field id.
+
+Behaviour (row fetch, action dispatch, detail view) wires in via filters — see [Table dispatch](/wp-wireframe/docs/reference/hooks-and-filters/#table-dispatch) for the full list. Legacy callback keys (`args.data_callback`, `args.actions[].callback`, `args.detail_view.fetch_callback`, etc.) remain supported as a fallback.

@@ -1,0 +1,77 @@
+---
+title: Rich Content
+description: WYSIWYG editor and syntax-highlighted code editor.
+sidebar:
+  order: 5
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+## Types
+
+| Type          | Description                         | Stored as       |
+| ------------- | ----------------------------------- | --------------- |
+| `editor`      | TinyMCE WYSIWYG editor              | `string` (HTML) |
+| `code_editor` | CodeMirror with syntax highlighting | `string`        |
+
+## `editor` (WYSIWYG)
+
+```php
+[
+    'id'    => 'welcome_email',
+    'type'  => 'editor',
+    'label' => __('Welcome email body', 'my-plugin'),
+    'args'  => [
+        'rows' => 12,
+    ],
+],
+```
+
+### Editor settings
+
+`args` pass straight through to WordPress's `wp.editor.initialize()`:
+
+| Arg             | Default | Notes                                                                              |
+| --------------- | ------- | ---------------------------------------------------------------------------------- |
+| `rows`          | —       | Textarea height (Text tab and the plain-textarea fallback).                         |
+| `media_buttons` | `true`  | Show the **Add Media** button.                                                      |
+| `wpautop`       | `true`  | Auto-paragraphs in the Visual tab.                                                  |
+| `tinymce`       | `{}`    | TinyMCE settings for the Visual tab (`toolbar1`, `plugins`, `height`, …), or `false` for a Text-only editor. |
+| `quicktags`     | `{}`    | Quicktags settings for the Text tab (`buttons`), or `false` for a Visual-only editor. |
+
+```php
+'args' => [
+    'media_buttons' => false,
+    'tinymce'       => ['toolbar1' => 'bold italic | bullist numlist | link'],
+    'quicktags'     => ['buttons' => 'strong,em,link'],
+],
+```
+
+`tinymce` and `quicktags` are merged over `wp.editor.getDefaultSettings()`, so a partial config keeps WordPress's defaults. The PHP-only `wp_editor()` args (`teeny`, `editor_height`, `textarea_rows`, `drag_drop_upload`, …) are not read — use the TinyMCE-native keys instead. WordPress only renders the Visual / Code tab switcher and the **Add Media** button when both tabs are enabled.
+
+`editor` works as a [repeater](/wp-wireframe/docs/field-types/complex/#repeater) subfield: each row gets its own editor instance.
+
+The saved string is the TinyMCE HTML, sanitised through `wp_kses_post()` on the server. Use `wp_kses_post()` again (or echo as-is for trusted authors) when rendering on the front-end.
+
+## `code_editor`
+
+```php
+[
+    'id'          => 'custom_css',
+    'type'        => 'code_editor',
+    'label'       => __('Custom CSS', 'my-plugin'),
+    'description' => __('Loaded after the theme styles.', 'my-plugin'),
+    'args'        => [
+        'mode' => 'css',
+        'rows' => 10,
+    ],
+],
+```
+
+### Supported modes
+
+`css`, `js`, `html`, `php`, `json`, `xml`, `sql`.
+
+<Aside type="caution">
+`code_editor` stores raw input. Never `eval()` or write to disk based on a `code_editor` value without an explicit allowlist of what's permitted — treat the contents as untrusted user input.
+</Aside>

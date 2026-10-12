@@ -1,0 +1,69 @@
+---
+title: Installation
+description: Add WP Wireframe to your plugin via Composer or a manual download.
+sidebar:
+  order: 1
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+WP Wireframe is a **library**, not a standalone plugin. Bundle a copy inside your own plugin's `vendor/` folder.
+
+## Requirements
+
+- PHP 8.1+
+- WordPress 6.5+
+
+## Install
+
+<Tabs>
+	<TabItem label="Composer (recommended)">
+		Add the GitHub repo to your plugin's Composer repositories — no Packagist needed:
+
+		```bash
+		composer config repositories.tdrayson/wp-wireframe git https://github.com/tdrayson/wp-wireframe
+		```
+
+		Or add it to `composer.json` by hand:
+
+		```json
+		{
+		    "repositories": [
+		        { "type": "vcs", "url": "https://github.com/tdrayson/wp-wireframe" }
+		    ]
+		}
+		```
+
+		Then install:
+
+		```bash
+		composer require tdrayson/wp-wireframe
+		```
+
+		And require the Composer autoloader from your plugin's main file:
+
+		```php
+		require_once __DIR__ . '/vendor/autoload.php';
+		```
+
+		Composer resolves the latest tagged release. The compiled JS/CSS bundle ships with the package, so there's no build step on your side.
+	</TabItem>
+	<TabItem label="Manual download">
+		1. Download the [latest release zip](https://github.com/tdrayson/wp-wireframe/releases/latest) and extract it so the folder sits at `your-plugin/vendor/wp-wireframe/`.
+		2. Require the autoloader from your plugin's main file:
+
+		```php
+		require_once __DIR__ . '/vendor/wp-wireframe/vendor/autoload.php';
+		```
+	</TabItem>
+</Tabs>
+
+No separate plugin to install or activate. Any number of plugins can bundle their own copy; every plugin runs on the newest one — see [Multi-plugin setup](/wp-wireframe/docs/recipes/multi-plugin-setup/#which-copy-runs).
+
+<Aside type="caution">
+	Require the autoloader when your plugin file loads, but don't use `Wireframe\` classes before `plugins_loaded` — a newer bundled copy may not have registered yet. Booting on `init`, as in the [Quick Start](/wp-wireframe/docs/getting-started/quick-start/), is fine.
+</Aside>
+
+## Next steps
+
+Continue to the [Quick Start](/wp-wireframe/docs/getting-started/quick-start/) to wire up a settings page in three small files.
