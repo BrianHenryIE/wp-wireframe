@@ -18,6 +18,8 @@
 - **Multi-page, repeaters, import/export, action buttons, i18n** — included out of the box
 - **Zero JS build** — pre-built React app ships with the package
 
+<a href="https://playground.wordpress.net/?blueprint-url=https://tdrayson.github.io/wp-wireframe/latest/blueprint.json"><img src="https://wordpress.github.io/action-wp-playground-pr-preview/assets/playground-preview-button.svg" width="200" alt="Try in Playground"></a>
+
 ![Config: one PHP array builds the whole settings page](.github/screenshots/config.png)
 
 <div align="center">

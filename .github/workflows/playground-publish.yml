@@ -12,6 +12,13 @@ on:
     workflows: [Playground]
     types: [completed]
   workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+      sha:
+        type: string
+        required: true
 
 permissions:
   contents: write
@@ -21,7 +28,7 @@ permissions:
 jobs:
   publish:
     if: >-
-      github.event_name == 'release' ||
+      inputs.tag ||
       (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request')
     runs-on: ubuntu-latest
 
@@ -33,7 +40,7 @@ jobs:
       queue: max
 
     env:
-      SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+      SHA: ${{ inputs.sha || github.event.workflow_run.head_sha }}
       GH_TOKEN: ${{ github.token }}
 
     outputs:
@@ -189,12 +196,41 @@ jobs:
           user_email: 41898282+github-actions[bot]@users.noreply.github.com
           commit_message: 'Publish example plugins for ${{ env.SHA }}'
 
+      # Republishing an older tag must not move `latest/` backwards.
+      - name: Check for latest release
+        id: latest
+        if: inputs.tag
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          latest="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq .tag_name)"
+          if [ "$latest" != "$TAG" ]; then
+            echo "::notice::$TAG is not the latest release ($latest); leaving latest/ alone"
+            exit 0
+          fi
+          mkdir -p latest
+          cp site/blueprint.json latest/blueprint.json
+          echo "publish=true" >> "$GITHUB_OUTPUT"
+
+      - name: Publish latest blueprint
+        if: steps.latest.outputs.publish == 'true'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: latest
+          destination_dir: latest
+          keep_files: true
+          user_name: github-actions[bot]
+          user_email: 41898282+github-actions[bot]@users.noreply.github.com
+          commit_message: 'Point latest/ at ${{ inputs.tag }} (${{ env.SHA }})'
+
   announce:
     needs: publish
     runs-on: ubuntu-latest
 
     env:
-      SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+      SHA: ${{ inputs.sha || github.event.workflow_run.head_sha }}
       BASE: ${{ needs.publish.outputs.base }}
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
@@ -249,9 +285,9 @@ jobs:
           path: summary.md
 
       - name: Update release notes
-        if: github.event_name == 'release'
+        if: inputs.tag
         env:
-          TAG: ${{ github.event.release.tag_name }}
+          TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
           block="$(printf '<!-- playground -->\n%s\n<!-- /playground -->' "$(cat summary.md)")"
