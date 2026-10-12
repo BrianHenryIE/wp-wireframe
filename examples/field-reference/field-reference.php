@@ -33,6 +33,19 @@ add_action('init', function () {
     ]);
 });
 
+// Demo handler for the action download button on the Tools tab.
+add_filter('field-reference/action/default/ref_download/run', function () {
+    return [
+        'status'   => 'success',
+        'message'  => __('Report generated.', 'field-reference'),
+        'download' => [
+            'filename' => 'field-reference-report.txt',
+            'mime'     => 'text/plain',
+            'content'  => sprintf("Field Reference report\nGenerated: %s\n", gmdate('c')),
+        ],
+    ];
+});
+
 // Demo handler for the `upload` + `action` pair on the Tools tab.
 add_filter('field-reference/action/default/ref_csv_preview/run', function ($unhandled, array $values) {
     $file = $values['ref_csv_file'] ?? null;
