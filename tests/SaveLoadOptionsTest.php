@@ -230,13 +230,21 @@ class SaveLoadOptionsTest extends \WP_Mock\Tools\TestCase
 			);
 		}
 
-		// The array option is still written, but holds nothing.
+		// No (empty) array option is stored: it is never written, and is
+		// deleted in case one was left over from array storage.
 		\WP_Mock::userFunction(
 			'update_option',
 			array(
+				'times' => 0,
+				'args'  => array( 'newsletter_signup_settings', Functions::type( 'array' ) ),
+			)
+		);
+		\WP_Mock::userFunction(
+			'delete_option',
+			array(
 				'times'  => 1,
-				'args'   => array( 'newsletter_signup_settings', array() ),
-				'return' => true,
+				'args'   => array( 'newsletter_signup_settings' ),
+				'return' => false,
 			)
 		);
 
@@ -300,12 +308,21 @@ class SaveLoadOptionsTest extends \WP_Mock\Tools\TestCase
 			)
 		);
 
+		// No (empty) array option is stored: it is never written, and is
+		// deleted in case one was left over from array storage.
 		\WP_Mock::userFunction(
 			'update_option',
 			array(
+				'times' => 0,
+				'args'  => array( 'newsletter_signup_settings', Functions::type( 'array' ) ),
+			)
+		);
+		\WP_Mock::userFunction(
+			'delete_option',
+			array(
 				'times'  => 1,
-				'args'   => array( 'newsletter_signup_settings', array() ),
-				'return' => true,
+				'args'   => array( 'newsletter_signup_settings' ),
+				'return' => false,
 			)
 		);
 

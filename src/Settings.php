@@ -531,6 +531,12 @@ final class Settings
             }
         }
 
+        // Nothing left for the array option (e.g. `individual_options`):
+        // don't leave an empty row behind.
+        if ($array === []) {
+            return delete_option($optionKey) || $changed;
+        }
+
         return update_option($optionKey, $array) || $changed;
     }
 
