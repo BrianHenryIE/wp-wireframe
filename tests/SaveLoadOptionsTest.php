@@ -600,4 +600,154 @@ class SaveLoadOptionsTest extends \WP_Mock\Tools\TestCase
 		$this->assertArrayHasKey( 'button_label', $written );
 		$this->assertSame( 'Subscribe now', $written['button_label'] );
 	}
+
+	/**
+	 * `option_prefix` is prepended to rows named after a field id; an
+	 * explicit `option_name` is used exactly as written.
+	 */
+	public function test_saving_individual_options_with_option_prefix(): void {
+
+		$config = $this->config;
+		$config['individual_options'] = true;
+		$config['option_prefix'] = 'newsletter_';
+		$config['tabs'][0]['sections'][0]['fields'][2]['option_name'] = 'brand_accent_color';
+
+		\Wireframe\App::boot([
+			'prefix'     => 'newsletter-signup',
+			'page_title' => 'Newsletter Signup',
+			'option_key' => 'newsletter_signup_settings',
+			'config'     => $config,
+		]);
+
+		$this->mockAdministrator();
+		$this->mockStoredOptions( array() );
+
+		$written = array();
+		\WP_Mock::userFunction(
+			'update_option',
+			array(
+				'return' => function ( string $name, mixed $value ) use ( &$written ): bool {
+					$written[ $name ] = $value;
+					return true;
+				},
+			)
+		);
+		\WP_Mock::userFunction( 'delete_option', array( 'return' => false ) );
+
+		$response = $this->postSettings(
+			'newsletter-signup',
+			'default',
+			array(
+				'heading'        => 'Join our list',
+				'button_label'   => 'Sign up',
+				'accent_color'   => '#ff0000',
+				'show_on_mobile' => false,
+			)
+		);
+
+		$this->assertInstanceOf( \WP_REST_Response::class, $response );
+		$this->assertTrue( $response->get_data()['success'] );
+
+		$this->assertSame(
+			array(
+				'newsletter_heading'        => 'Join our list',
+				'newsletter_button_label'   => 'Sign up',
+				'brand_accent_color'        => '#ff0000',
+				'newsletter_show_on_mobile' => '0',
+			),
+			$written
+		);
+	}
+
+	public function test_loading_individual_options_with_option_prefix(): void {
+
+		$config = $this->config;
+		$config['individual_options'] = true;
+		$config['option_prefix'] = 'newsletter_';
+
+		\Wireframe\App::boot([
+			'prefix'     => 'newsletter-signup',
+			'page_title' => 'Newsletter Signup',
+			'option_key' => 'newsletter_signup_settings',
+			'config'     => $config,
+		]);
+
+		$this->mockAdministrator();
+
+		// Unprefixed rows must be ignored.
+		$this->mockStoredOptions(
+			array(
+				'heading'                   => 'Ignored',
+				'newsletter_heading'        => 'Join our list',
+				'newsletter_show_on_mobile' => '0',
+			)
+		);
+
+		$values = $this->getSettingsValues( 'newsletter-signup', 'default' );
+
+		$this->assertSame(
+			array(
+				'heading'        => 'Join our list',
+				'button_label'   => 'Subscribe',
+				'accent_color'   => '#3858e9',
+				'show_on_mobile' => false,
+			),
+			$values
+		);
+	}
+
+	/**
+	 * Without `individual_options`, `option_prefix` changes nothing: fields
+	 * stay in the array and an explicit `option_name` is not prefixed.
+	 */
+	public function test_option_prefix_without_individual_options(): void {
+
+		$config = $this->config;
+		$config['option_prefix'] = 'newsletter_';
+		$config['tabs'][0]['sections'][0]['fields'][2]['option_name'] = 'brand_accent_color';
+
+		\Wireframe\App::boot([
+			'prefix'     => 'newsletter-signup',
+			'page_title' => 'Newsletter Signup',
+			'option_key' => 'newsletter_signup_settings',
+			'config'     => $config,
+		]);
+
+		$this->mockAdministrator();
+		$this->mockStoredOptions( array() );
+
+		$written = array();
+		\WP_Mock::userFunction(
+			'update_option',
+			array(
+				'return' => function ( string $name, mixed $value ) use ( &$written ): bool {
+					$written[ $name ] = $value;
+					return true;
+				},
+			)
+		);
+
+		$this->postSettings(
+			'newsletter-signup',
+			'default',
+			array(
+				'heading'        => 'Join our list',
+				'button_label'   => 'Sign up',
+				'accent_color'   => '#ff0000',
+				'show_on_mobile' => false,
+			)
+		);
+
+		$this->assertSame(
+			array(
+				'brand_accent_color'         => '#ff0000',
+				'newsletter_signup_settings' => array(
+					'heading'        => 'Join our list',
+					'button_label'   => 'Sign up',
+					'show_on_mobile' => false,
+				),
+			),
+			$written
+		);
+	}
 }

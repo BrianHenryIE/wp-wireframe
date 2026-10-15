@@ -130,6 +130,16 @@ final class ConfigLoader
     }
 
     /**
+     * Prefix prepended to the row name of every field stored individually
+     * under its raw `id` (via `individual_options`). Fields with an explicit
+     * `option_name` are not prefixed. Defaults to '' (raw ids).
+     */
+    public static function optionPrefix(string $slug = 'settings'): string
+    {
+        return self::load($slug)['option_prefix'] ?? '';
+    }
+
+    /**
      * Clear all cached configs.
      */
     public static function reset(): void
@@ -154,6 +164,7 @@ final class ConfigLoader
             'subtitle'           => $raw['subtitle'] ?? '',
             'header_actions'     => array_values(array_filter((array) ($raw['header_actions'] ?? []), 'is_array')),
             'individual_options' => !empty($raw['individual_options']),
+            'option_prefix'      => is_string($raw['option_prefix'] ?? null) ? $raw['option_prefix'] : '',
         ];
 
         // Format 1: Fields only — wrap in default section + default tab.

@@ -471,7 +471,7 @@ final class Settings
      *
      * A field is stored individually when it declares a non-empty
      * `option_name`, or when the config sets `individual_options` at the
-     * root (row name = raw field `id`). Repeater subfields and stateless
+     * root (row name = `option_prefix` + raw field `id`). Repeater subfields and stateless
      * field types are never stored individually, and a name colliding with
      * the page's own option key is ignored.
      *
@@ -481,6 +481,7 @@ final class Settings
     {
         $configSlug ??= App::configSlugForOptionKey($optionKey);
         $individual  = ConfigLoader::individualOptions($configSlug);
+        $prefix      = ConfigLoader::optionPrefix($configSlug);
         $registry    = FieldRegistry::instance();
         $map         = [];
 
@@ -489,7 +490,7 @@ final class Settings
                 continue;
             }
 
-            $optionName = self::optionNameFor($fieldConfig, $individual);
+            $optionName = self::optionNameFor($fieldConfig, $individual, $prefix);
 
             if ($optionName === null || $optionName === $optionKey) {
                 continue;
@@ -509,8 +510,11 @@ final class Settings
 
     /**
      * Resolve the wp_options row name for a field, or null for array storage.
+     *
+     * An explicit `option_name` is used exactly as written; `$prefix` only
+     * applies to names derived from the field `id`.
      */
-    private static function optionNameFor(array $fieldConfig, bool $individual): ?string
+    private static function optionNameFor(array $fieldConfig, bool $individual, string $prefix): ?string
     {
         $explicit = $fieldConfig['option_name'] ?? null;
 
@@ -519,7 +523,7 @@ final class Settings
         }
 
         if ($individual && ($fieldConfig['id'] ?? '') !== '') {
-            return $fieldConfig['id'];
+            return $prefix . $fieldConfig['id'];
         }
 
         return null;

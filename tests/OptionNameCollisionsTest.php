@@ -123,4 +123,12 @@ class OptionNameCollisionsTest extends \WP_Mock\Tools\TestCase
 
 		$this->assertConditionsMet();
 	}
+
+	public function test_option_prefix_keeps_the_same_field_id_apart(): void {
+
+		$this->bootPlugin( 'plugin-a', array( array( 'id' => 'enabled', 'type' => 'toggle' ) ), array( 'individual_options' => true, 'option_prefix' => 'plugin_a_' ) );
+		$this->bootPlugin( 'plugin-b', array( array( 'id' => 'enabled', 'type' => 'toggle' ) ), array( 'individual_options' => true, 'option_prefix' => 'plugin_b_' ) );
+
+		$this->assertSame( array(), Settings::optionNameCollisions() );
+	}
 }
