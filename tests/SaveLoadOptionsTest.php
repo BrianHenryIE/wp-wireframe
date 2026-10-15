@@ -553,4 +553,51 @@ class SaveLoadOptionsTest extends \WP_Mock\Tools\TestCase
 			$values
 		);
 	}
+
+	/**
+	 * A field stored in its own row is still written by the Settings API
+	 * while its conditions hide it, matching array storage.
+	 */
+	public function test_setting_condition_hidden_individual_option(): void {
+
+		$config = $this->config;
+		$config['individual_options'] = true;
+		$config['tabs'][0]['sections'][0]['fields'][1]['conditions'] = array(
+			'all' => array( array( 'field' => 'show_on_mobile', 'operator' => 'truthy' ) ),
+		);
+
+		\Wireframe\App::boot([
+			'prefix'     => 'newsletter-signup',
+			'page_title' => 'Newsletter Signup',
+			'option_key' => 'newsletter_signup_settings',
+			'config'     => $config,
+		]);
+
+		$this->mockAdministrator();
+
+		// `show_on_mobile` is off, so `button_label` is hidden.
+		$this->mockStoredOptions(
+			array(
+				'button_label'   => 'Sign up',
+				'show_on_mobile' => '0',
+			)
+		);
+
+		$written = array();
+		\WP_Mock::userFunction(
+			'update_option',
+			array(
+				'return' => function ( string $name, mixed $value ) use ( &$written ): bool {
+					$written[ $name ] = $value;
+					return true;
+				},
+			)
+		);
+		\WP_Mock::userFunction( 'delete_option', array( 'return' => false ) );
+
+		$this->assertTrue( \Wireframe\Settings::set( 'newsletter_signup_settings', 'button_label', 'Subscribe now' ) );
+
+		$this->assertArrayHasKey( 'button_label', $written );
+		$this->assertSame( 'Subscribe now', $written['button_label'] );
+	}
 }

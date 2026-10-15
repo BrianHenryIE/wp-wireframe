@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Wireframe;
 
 use Wireframe\Framework\ConfigLoader;
-use Wireframe\Framework\Conditions;
 use Wireframe\Framework\Fields\FieldRegistry;
 use Wireframe\Framework\Fields\ToggleField;
 
@@ -497,8 +496,9 @@ final class Settings
      * Split individual fields out of the values array into their own rows,
      * then write the remainder to the array option.
      *
-     * Condition-hidden fields are never written (nor deleted), mirroring
-     * the array-merge preservation semantics of the REST save path.
+     * Every field present in $values is written regardless of condition
+     * visibility, matching array storage. The REST save path already
+     * preserves hidden fields' stored values via its merged final values.
      */
     private static function persist(string $optionKey, array $values): bool
     {
@@ -508,25 +508,12 @@ final class Settings
             return update_option($optionKey, $values);
         }
 
-        $configSlug = App::configSlugForOptionKey($optionKey);
-        $visibility = Conditions::visibilityMap(ConfigLoader::flatFields($configSlug), $values);
-
         $array   = $values;
         $changed = false;
 
         foreach ($map as $fieldId => $row) {
-            $visible = $visibility[$fieldId] ?? true;
-
-            if ($visible && array_key_exists($fieldId, $array)) {
+            if (array_key_exists($fieldId, $array)) {
                 $changed = update_option($row['option'], self::encodeRow($array[$fieldId])) || $changed;
-                unset($array[$fieldId]);
-                continue;
-            }
-
-            // Hidden (or absent): if a row already exists it stays
-            // authoritative, so drop the stale array copy; otherwise keep
-            // any legacy array value until the field becomes visible.
-            if (self::rowExists($row['option'])) {
                 unset($array[$fieldId]);
             }
         }
