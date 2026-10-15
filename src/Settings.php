@@ -417,6 +417,53 @@ final class Settings
         return update_option($optionKey, $saved) || $changed;
     }
 
+    /**
+     * Find wp_options rows claimed by more than one owner across all booted
+     * pages: two individually stored fields resolving to the same row, or a
+     * field resolving to another page's `option_key`.
+     *
+     * Two plugins both using `individual_options` with an `enabled` field
+     * would otherwise silently share one row.
+     *
+     * @return list<string> One description per contested row.
+     */
+    public static function optionNameCollisions(): array
+    {
+        $owners = [];
+
+        foreach (App::pages() as $page) {
+            $owners[$page['option_key']] ??= ["settings array of page \"{$page['menu_slug']}\""];
+        }
+
+        foreach (App::pages() as $page) {
+            foreach (self::individualFieldMap($page['option_key'], $page['config']) as $fieldId => $row) {
+                $owners[$row['option']][] = "field \"{$fieldId}\" on page \"{$page['menu_slug']}\"";
+            }
+        }
+
+        $collisions = [];
+
+        foreach ($owners as $optionName => $claimants) {
+            if (count($claimants) > 1) {
+                $collisions[] = "wp_options row \"{$optionName}\" is used by the " . implode(', and the ', $claimants) . '.';
+            }
+        }
+
+        return $collisions;
+    }
+
+    /**
+     * Flag each colliding row name via _doing_it_wrong().
+     *
+     * Hooked on `wp_loaded` under WP_DEBUG, once every plugin has booted.
+     */
+    public static function reportOptionNameCollisions(): void
+    {
+        foreach (self::optionNameCollisions() as $collision) {
+            _doing_it_wrong(App::class . '::boot', esc_html($collision), '1.2.0');
+        }
+    }
+
     // ─── Individual option storage internals ─────────
 
     /**

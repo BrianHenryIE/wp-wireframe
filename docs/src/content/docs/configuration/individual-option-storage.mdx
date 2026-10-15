@@ -29,7 +29,7 @@ With `individual_options` each row is named after the raw field `id` — useful 
 - **Booleans** (`toggle`, `checkbox`) are stored as `'1'` / `'0'` in the row (a raw `false` can't round-trip through `update_option()`), but `Settings::get()` / `Settings::bool()` and the settings page always give you a real `bool`. Third-party code reading the row directly gets `'1'` / `'0'`.
 - **Arrays** (repeaters, checkboxes, multi-selects) are stored serialized in the single row, exactly as `update_option()` normally handles arrays.
 - **Reset** deletes the individual rows along with the settings array; condition-hidden fields keep their stored rows on save, same as array storage.
-- **Naming is your responsibility** — pick option names that won't collide with other plugins (a name equal to the page's own option key is ignored).
+- **Naming is your responsibility** — pick option names that won't collide with other plugins (a name equal to the page's own option key is ignored). With `WP_DEBUG` on, a `_doing_it_wrong()` notice flags any row claimed by two fields, or by a field and another page's `option_key`, across every booted page.
 
 Other plugins and WP-CLI can then work with the value directly:
 
